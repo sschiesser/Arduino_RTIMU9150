@@ -96,7 +96,7 @@ int tbButtonPressed = 0;
 
 
 /* ****************************************************************
-   ***                        MPU-6050                          ***
+   ***                        MPU-9150                          ***
    ****************************************************************/
 RTIMU *imu;                                           // the IMU object
 RTFusionRTQF fusion;                                  // the fusion object
@@ -119,8 +119,13 @@ unsigned long lastTransmit;
 //  SERIAL_PORT_SPEED defines the speed to use for the debug serial port
 #define  SERIAL_PORT_SPEED  115200
 
-// Frame format:       {ST, ADD,    quaternions,      accel xyz,   gyro xyz,   slider, thumb joy, trackball,        ...         SP }
-uint8_t transmit[36] = {60, 191, 0,0, 0,0, 0,0, 0,0, 0,0,0,0,0,0, 0,0,0,0,0,0,  0,0,    0,0,0,0,   0,0,0,0,   0x00, 0x00, 0x00, 90 };
+// IMU & fusion data to transmit
+unsigned long tsData;
+RTVector3 accelData, gyroData;
+RTQuaternion quatData;
+
+// Frame format:       {ST, ADD,   quat w,      x,       y,       z,      accel x,    y,       z,      gyro x,      y,       z,     joy xyb,    tb xyb,     ts,        ...        SP }
+uint8_t transmit[60] = {60, 191,   0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,    0,0,0,0, 0,0,0,0, 0,0,0,0,   0,0,0,0, 0,0,0,0, 0,0,0,0,   0,0,0,0,0,  0,0,0,0,0,  0,0,0,0,  0x00, 0x00, 0x00, 90 };
 
 
 // ================================================================
@@ -165,81 +170,105 @@ void setup()
 void loop()
 {  
     unsigned long now = millis();
-    RTVector3 accel;
   
-    if (imu->IMURead()) {                                // get the latest data if ready yet
-//      I2Cdev::readBytes(settings.m_I2CSlaveAddress, 0x74, 12, fifoData);
-      accel = imu->getAccel();
-      f2b.f = accel.x();
-      Serial.print("Accel: "); Serial.print(f2b.f); Serial.print(" - ");
-      for(int i = 0; i < sizeof(float); i++) {
-        Serial.print((uint8_t)f2b.b[i], HEX); Serial.print(" ");
-      }
-      Serial.println();
-//        fusion.newIMUData(imu->getGyro(), imu->getAccel(), imu->getCompass(), imu->getTimestamp());
-//        do_output(debug, now);
+    if (imu->IMURead()) {                 // get the latest data if ready yet
+      fusion.newIMUData(imu->getGyro(), imu->getAccel(), imu->getCompass(), imu->getTimestamp()); // calculate the fusion data from the read imu values
+      accelData = imu->getAccel();        // get accel data
+      gyroData = imu->getGyro();          // get gyro data
+      tsData = imu->getTimestamp();       // get calculated timestamp
+      quatData = fusion.getFusionQPose(); // get fused quaternions
+      
     }
+    
+    do_output(now);
+
 }
 
 
-void do_output(boolean debugMode, unsigned long ts) {
+void do_output(unsigned long ts) {
   unsigned long delta;
 
-  if(debugMode) {
+  if(debug) {
     sampleCount++;
     if ((delta = ts - lastRate) >= GYRO_BIAS_RATE) {
-        Serial.print("Sample rate: "); Serial.print(sampleCount);
-        if (imu->IMUGyroBiasValid())
-            Serial.println(", gyro bias valid");
-        else
-            Serial.println(", calculating gyro bias");
-    
-        sampleCount = 0;
-        lastRate = ts;
+      Serial.print("Sample rate: "); Serial.print(sampleCount);
+      if (imu->IMUGyroBiasValid()) {
+        Serial.println(", gyro bias valid");
+      } else {
+        Serial.println(", calculating gyro bias");
+      }
+      
+      sampleCount = 0;
+      lastRate = ts;
     }
     if ((ts - lastDisplay) >= DISPLAY_INTERVAL) {
-        lastDisplay = ts;
-  //          RTMath::display("Gyro:", (RTVector3&)imu->getGyro());                // gyro data
-  //          RTMath::display("Accel:", (RTVector3&)imu->getAccel());              // accel data
-  //          RTMath::display("Mag:", (RTVector3&)imu->getCompass());              // compass data
-  //            RTMath::displayRollPitchYaw("Pose:", (RTVector3&)fusion.getFusionPose()); // fused output
-        RTMath::display("Quaternion:", (RTQuaternion&)fusion.getFusionQPose()); // fused quaternions
-       Serial.println();
+      lastDisplay = ts;
+      Serial.print("Got data...\nAccel: x "); Serial.print(accelData.x());
+      Serial.print(" y "); Serial.print(accelData.y());
+      Serial.print(" z "); Serial.println(accelData.z());
+      Serial.print("Gyro: x "); Serial.print(gyroData.x());
+      Serial.print(" y "); Serial.print(gyroData.y());
+      Serial.print(" z "); Serial.println(gyroData.z());
+      Serial.print("Quat: w "); Serial.print(quatData.scalar());
+      Serial.print(" x "); Serial.print(quatData.x());
+      Serial.print(" y "); Serial.print(quatData.y());
+      Serial.print(" z "); Serial.println(quatData.z());
+      Serial.print("Timestamp: "); Serial.println(tsData);
     }
   } else {
+    int i;
     if ((ts - lastTransmit) >= TRANSMIT_INTERVAL) {
-      Serial.print("Transmitting. Interval: "); Serial.println(ts - lastTransmit);
-        
-//      accel = imu->getAccel();
-//      float accelF = accel.x();
-//      uint8_t *p = (uint8_t*)&accelF;
-//      for(int i = 0; i < 4; i++) {
-//        accelB[i] = p[i];
-//      }
-//      Serial.print("Accel... x:"); Serial.print(accel.x());
-//      transmit[2] =
-//      transmit[3] =
-//      transmit[4] =
-//      transmit[5] =
-//      transmit[6] =
-//      transmit[7] =
-//      transmit[8] =
-//      transmit[9] =
-//
-//      transmit[10] =
-//      transmit[11] =
-//      transmit[12] =
-//      transmit[13] =
-//      transmit[14] =
-//      transmit[15] =
-//
-//      transmit[16] =
-//      transmit[17] =
-//      transmit[18] =
-//      transmit[19] =
-//      transmit[20] =
-//      transmit[21] =      
-//      
+      f2b.f = quatData.scalar();
+      for(i = 0; i < 4; i++) {
+        transmit[i+2] = f2b.b[i];
+      }
+      f2b.f = quatData.x();
+      for(i = 0; i < 4; i++) {
+        transmit[i+6] = f2b.b[i];
+      }
+      f2b.f = quatData.y();
+      for(i = 0; i < 4; i++) {
+       transmit[i+10] = f2b.b[i];
+      }
+      f2b.f = quatData.z();
+      for(i = 0; i < 4; i++) {
+        transmit[i+14] = f2b.b[i];
+      }
+
+      f2b.f = accelData.x();
+      for(i = 0; i < 4; i++) {
+        transmit[i+18] = f2b.b[i];
+      }
+      f2b.f = accelData.y();
+      for(i = 0; i < 4; i++) {
+        transmit[i+22] = f2b.b[i];
+      }
+      f2b.f = accelData.z();
+      for(i = 0; i < 4; i++) {
+        transmit[i+26] = f2b.b[i];
+      }
+      
+      f2b.f = gyroData.x();
+      for(i = 0; i < 4; i++) {
+        transmit[i+30] = f2b.b[i];
+      }
+      f2b.f = gyroData.y();
+      for(i = 0; i < 4; i++) {
+        transmit[i+34] = f2b.b[i];
+      }
+      f2b.f = gyroData.z();
+      for(i = 0; i < 4; i++) {
+        transmit[i+38] = f2b.b[i];
+      }
+      
+      // transmit[42-46] -> joystick X Y B
+      // transmit[47-51] -> trackball X Y B
+      
+      transmit[52] = (uint8_t)((tsData >> 24) & 0xff);
+      transmit[53] = (uint8_t)((tsData >> 16) & 0xff);
+      transmit[54] = (uint8_t)((tsData >> 8) & 0xff);
+      transmit[55] = (uint8_t)(tsData & 0xff); 
+      
       lastTransmit = ts;
     }
   }
