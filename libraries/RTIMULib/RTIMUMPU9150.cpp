@@ -379,7 +379,7 @@ bool RTIMUMPU9150::IMURead()
     unsigned int count;
     unsigned char fifoData[12];
     unsigned char compassData[8];
-
+	
     if (!I2Cdev::readBytes(m_slaveAddr, MPU9150_FIFO_COUNT_H, 2, fifoCount))
          return false;
 

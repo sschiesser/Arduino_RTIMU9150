@@ -112,7 +112,7 @@ unsigned long lastRate;
 unsigned long lastDisplay;
 
 // TRANSMIT_INTERVAL set the rate at which results are transmited
-#define TRANSMIT_INTERVAL 0                          // interval betwween two transmisions
+#define TRANSMIT_INTERVAL 5                          // interval betwween two transmisions
                                                      // note that the code need ca 20 ms to fetch and compute the data
 unsigned long lastTransmit;
 
@@ -170,6 +170,7 @@ void setup()
 void loop()
 {  
     unsigned long now = millis();
+//    Serial.println("waiting...");
   
     if (imu->IMURead()) {                 // get the latest data if ready yet
       fusion.newIMUData(imu->getGyro(), imu->getAccel(), imu->getCompass(), imu->getTimestamp()); // calculate the fusion data from the read imu values
@@ -177,7 +178,7 @@ void loop()
       gyroData = imu->getGyro();          // get gyro data
       tsData = imu->getTimestamp();       // get calculated timestamp
       quatData = fusion.getFusionQPose(); // get fused quaternions
-      
+//      Serial.print("NOW: "); Serial.println(now);
     }
     
     do_output(now);
@@ -218,6 +219,8 @@ void do_output(unsigned long ts) {
   } else {
     int i;
     if ((ts - lastTransmit) >= TRANSMIT_INTERVAL) {
+      lastTransmit = ts;
+
       f2b.f = quatData.scalar();
       for(i = 0; i < 4; i++) {
         transmit[i+2] = f2b.b[i];
@@ -269,7 +272,7 @@ void do_output(unsigned long ts) {
       transmit[54] = (uint8_t)((tsData >> 8) & 0xff);
       transmit[55] = (uint8_t)(tsData & 0xff); 
       
-      lastTransmit = ts;
+      Serial.write(transmit, 60);
     }
   }
 
