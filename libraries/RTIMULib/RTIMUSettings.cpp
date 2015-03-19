@@ -67,8 +67,8 @@ RTIMUSettings::RTIMUSettings()
 #ifdef MPU9150_68
     //  MPU9150 defaults
 
-    m_MPU9150GyroAccelSampleRate = 100;
-    m_MPU9150CompassSampleRate = 50;
+    m_MPU9150GyroAccelSampleRate = 50;
+    m_MPU9150CompassSampleRate = 25;
     m_MPU9150GyroAccelLpf = MPU9150_LPF_20;
     m_MPU9150GyroFsr = MPU9150_GYROFSR_1000;
     m_MPU9150AccelFsr = MPU9150_ACCELFSR_8;

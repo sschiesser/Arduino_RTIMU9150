@@ -32,12 +32,6 @@
 // debug flag for terminal monitoring
 boolean debug = false;
 
-union float2bytes {
-  float f;
-  uint8_t b[sizeof(float)];
-};
-float2bytes f2b;
-
 /* ****************************************************************
    ***                        SLIDER                            ***
    ****************************************************************/
@@ -124,9 +118,15 @@ unsigned long tsData;
 RTVector3 accelData, gyroData;
 RTQuaternion quatData;
 
-// Frame format:       {ST, ADD,   quat w,      x,       y,       z,      accel x,    y,       z,      gyro x,      y,       z,     joy xyb,    tb xyb,     ts,        ...        SP }
+// Frame format:       {ST, ADD,   quat w,      x,       y,       z,      accel x,    y,       z,      gyro x,      y,       z,     joy xyb,    tb xyb,     ts,              ...        SP }
 uint8_t transmit[60] = {60, 191,   0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,    0,0,0,0, 0,0,0,0, 0,0,0,0,   0,0,0,0, 0,0,0,0, 0,0,0,0,   0,0,0,0,0,  0,0,0,0,0,  0,0,0,0,  0x00, 0x00, 0x00, 90 };
+//                     {0          2        6        10       14          18       22       26         30       34       38         42          47          52        56                59 }
 
+
+union float2Bytes {
+    float f;
+    uint8_t b[4];
+  } f2b;
 
 // ================================================================
 // ===                      INITIAL SETUP                       ===
@@ -218,6 +218,8 @@ void do_output(unsigned long ts) {
     }
   } else {
     int i;
+    double temp;
+    
     if ((ts - lastTransmit) >= TRANSMIT_INTERVAL) {
       lastTransmit = ts;
 
@@ -225,6 +227,7 @@ void do_output(unsigned long ts) {
       for(i = 0; i < 4; i++) {
         transmit[i+2] = f2b.b[i];
       }
+
       f2b.f = quatData.x();
       for(i = 0; i < 4; i++) {
         transmit[i+6] = f2b.b[i];
@@ -264,16 +267,25 @@ void do_output(unsigned long ts) {
         transmit[i+38] = f2b.b[i];
       }
       
+      for(i = 42; i < 52; i++) {
+        transmit[i] = 0;
+      }
       // transmit[42-46] -> joystick X Y B
       // transmit[47-51] -> trackball X Y B
       
       transmit[52] = (uint8_t)((tsData >> 24) & 0xff);
       transmit[53] = (uint8_t)((tsData >> 16) & 0xff);
       transmit[54] = (uint8_t)((tsData >> 8) & 0xff);
-      transmit[55] = (uint8_t)(tsData & 0xff); 
+      transmit[55] = (uint8_t)(tsData & 0xff);
+      
+      for(i = 56; i < 59; i++) {
+        transmit[i] = 0;
+      }
       
       Serial.write(transmit, 60);
     }
   }
 
 }
+
+
