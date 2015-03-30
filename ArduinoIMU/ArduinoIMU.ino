@@ -27,22 +27,26 @@
 #include "RTIMU.h"
 #include "RTFusionRTQF.h"
 #include "CalLib.h"
-#include <EEPROM.h>
+#include <EEPROM.h>x
+#include <PinChangeInt.h>
 
+/* ****************************************************************
+   ***                       GENERAL                            ***
+   ****************************************************************/
 // debug flag for terminal monitoring
 boolean debug = false;
 
-/* ****************************************************************
-   ***                        SLIDER                            ***
-   ****************************************************************/
-boolean slider = false;
-int sliderPin = 2; // Analog read A2 pin
-int sliderVal = 0;
-int sliderValMin = 0;
-int sliderValMax = 1023;
-//float sliderValF = 0.0;
-int sliderTransmitPos = 22; // First position of slider values in the transmit array
-int sliderVals = 2; // Number of positions occupied by slider in the transmit array
+// LED blink mode
+boolean blinkMode = true;
+boolean blinkState = false;
+int ledPin = 13;
+
+// transmit buffer 
+// Frame format:       {ST, ADD,   quat w,      x,       y,       z,      accel x,    y,       z,      gyro x,      y,       z,     joy xyb,    tb xyb,     ts,              ...        SP }
+uint8_t transmit[60] = {60, 191,   0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,    0,0,0,0, 0,0,0,0, 0,0,0,0,   0,0,0,0, 0,0,0,0, 0,0,0,0,   0,0,0,0,0,  0,0,0,0,0,  0,0,0,0,  0x00, 0x00, 0x00, 90 };
+//                     {0          2        6        10       14          18       22       26         30       34       38         42          47          52        56                59 }
+
+
 
 
 /* ****************************************************************
@@ -50,19 +54,21 @@ int sliderVals = 2; // Number of positions occupied by slider in the transmit ar
    ****************************************************************/
 // thumbJoy pinout (L to R):
 // Xout - 5V - Yout - gnd
-boolean thumbJoy = false;
+boolean thumbJoy = true;
 int thumbPinX = 0; // Analog read A0 pin
 int thumbPinY = 1; // Analog read A1 pin
+int thumbButtonPin = 12; // Digital in 12 (PCint)
 int thumbValX = 0;
 int thumbValY = 0;
 int thumbValXMin = 224;
 int thumbValXMax = 890;
 int thumbValYMin = 20;
 int thumbValYMax = 870;
-//float thumbValXF = 0.0;
-//float thumbValYF = 0.0;
-int thumbTransmitPos = 24; // First position of the thumb joystick values in the transmit array
-int thumbVals = 4; // Number of positions occupied by thumbJoy in the transmit array
+
+int thumbTransmitPos = 42; // First position of the thumb joystick values in the transmit array
+int thumbVals = 5; // Number of positions occupied by thumbJoy in the transmit array
+
+boolean thumbButtonPressed = false;
 
 
 /* ****************************************************************
@@ -79,14 +85,15 @@ int tbWheelLeftPin = 5; // Digital in 5 (PCInt)
 int tbWheelRightPin = 6; // Digital in 6 (PCInt)
 int tbButtonPin = 7; // Digital in 7 (PCInt)
 
-int tbTransmitPos = 28; // First position of the trackball values in the transmit array
-int tbVals = 4; // Number of positions occupied by trackball in the transmit array
+int tbTransmitPos = 47; // First position of the trackball values in the transmit array
+int tbVals = 5; // Number of positions occupied by trackball in the transmit array
 
 volatile int tbWheelVertCntRaw = 120;
 volatile int tbWheelHorizCntRaw = 120;
 int tbWheelCntMax = 240;
 int tbWheelCntMin = 0;
-int tbButtonPressed = 0;
+int tbWheelIncStep = 10;
+boolean tbButtonPressed = false;
 
 
 /* ****************************************************************
@@ -110,6 +117,10 @@ unsigned long lastDisplay;
                                                      // note that the code need ca 20 ms to fetch and compute the data
 unsigned long lastTransmit;
 
+// SAMPLE_RATE set the rate at which the IMU is sampled
+#define SAMPLE_RATE 50                              // sample rate in Hz
+unsigned long lastSample;
+
 //  SERIAL_PORT_SPEED defines the speed to use for the debug serial port
 #define  SERIAL_PORT_SPEED  115200
 
@@ -117,12 +128,17 @@ unsigned long lastTransmit;
 unsigned long tsData;
 RTVector3 accelData, gyroData;
 RTQuaternion quatData;
+int imuQuatPos = 2; // position of the first quaternion byte in the transmit table
+int imuQuatSize = 4; // size in bytes of each quaternion data
+int imuQuatNum = 4; // number of quaternions
+int imuAccelPos = imuQuatPos + (imuQuatSize * imuQuatNum);
+int imuAccelSize = 4; // size in bytes of each accelerometer data
+int imuAccelNum = 3; // number of accelerometer values
+int imuGyroPos = imuAccelPos + (imuAccelSize * imuAccelNum);
+int imuGyroSize = 4; // size in bytes of each gyroscope data
+int imuGyroNum = 3; // number of gyroscope values
 
-// Frame format:       {ST, ADD,   quat w,      x,       y,       z,      accel x,    y,       z,      gyro x,      y,       z,     joy xyb,    tb xyb,     ts,              ...        SP }
-uint8_t transmit[60] = {60, 191,   0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,    0,0,0,0, 0,0,0,0, 0,0,0,0,   0,0,0,0, 0,0,0,0, 0,0,0,0,   0,0,0,0,0,  0,0,0,0,0,  0,0,0,0,  0x00, 0x00, 0x00, 90 };
-//                     {0          2        6        10       14          18       22       26         30       34       38         42          47          52        56                59 }
-
-
+// float to bytes converting union
 union float2Bytes {
   float f;
   uint8_t b[4];
@@ -131,34 +147,75 @@ union float2Bytes {
 // ================================================================
 // ===                      INITIAL SETUP                       ===
 // ================================================================
-
 void setup()
 {
-    int errcode;
+    int errcode, i;
   
     Serial.begin(SERIAL_PORT_SPEED);
     Wire.begin();
-    imu = RTIMU::createIMU(&settings);                        // create the imu object
-  
+    pinMode(ledPin, OUTPUT);
+    
+    /* IMU setup
+     * default setting values: "../libraries/RTIMULib/RTIMUSettings.cpp"
+     * initialization functions: "../libraries/RTIMULib/RTIMU.cpp", "../libraries/RTIMULib/RTIMUMPU9150.cpp"
+     * calibration functions: "../libraries/CalLib/CalLib.cpp" */
+    imu = RTIMU::createIMU(&settings); // create the imu object
     Serial.print("ArduinoIMU starting using device "); Serial.println(imu->IMUName());
     if ((errcode = imu->IMUInit()) < 0) {
         Serial.print("Failed to init IMU: "); Serial.println(errcode);
     }
-  
-    if (imu->getCalibrationValid())
+    if (imu->getCalibrationValid()) {
         Serial.println("Using compass calibration");
-    else
+    } else {
         Serial.println("No valid compass calibration data");
-
-    lastDisplay = lastRate = lastTransmit = millis();
+    }
+    lastDisplay = lastRate = lastTransmit = lastSample =  millis();
+    if(debug) {
+      Serial.print("Starting counter @ "); Serial.println(lastDisplay);
+    }
     sampleCount = 0;
-    
     // use of sensors in the fusion algorithm can be controlled here
     // change any of these to false to disable that sensor
-    
     fusion.setGyroEnable(true);
     fusion.setAccelEnable(true);
     fusion.setCompassEnable(true);
+    
+    /* Thumb joystick setup */
+    if(thumbJoy) {
+      if(debug) Serial.println("Thumb joystick enabled");
+
+      pinMode(thumbButtonPin, INPUT_PULLUP);
+      PCintPort::attachInterrupt(thumbButtonPin, &thumbButtonInt, CHANGE);
+    } else {
+      for(i = 0; i < thumbVals; i++) {
+        transmit[thumbTransmitPos + i] = 120 + i;
+      }
+    }
+    
+    /* Trackball setup */
+    if(trackball) {
+      if(debug) Serial.println("Trackball enabled");
+
+      pinMode(tbWheelUpPin, INPUT);
+      PCintPort::attachInterrupt(tbWheelUpPin, &tbWheelUpInt, RISING);
+
+      pinMode(tbWheelDownPin, INPUT);
+      PCintPort::attachInterrupt(tbWheelDownPin, &tbWheelDownInt, RISING);
+
+      pinMode(tbWheelLeftPin, INPUT);
+      PCintPort::attachInterrupt(tbWheelLeftPin, &tbWheelLeftInt, RISING);
+
+      pinMode(tbWheelRightPin, INPUT);
+      PCintPort::attachInterrupt(tbWheelRightPin, &tbWheelRightInt, RISING);
+
+      pinMode(tbButtonPin, INPUT_PULLUP);
+      PCintPort::attachInterrupt(tbButtonPin, &tbButtonInt, CHANGE);      
+    } else {
+      for(i = 0; i < (tbVals-1); i++) {
+        transmit[tbTransmitPos + i] = 140 + i;
+      }
+      transmit[tbTransmitPos + tbVals -1] = 0;
+    }
 }
 
 
@@ -178,51 +235,71 @@ void loop()
       gyroData = imu->getGyro();          // get gyro data
       tsData = imu->getTimestamp();       // get calculated timestamp
       quatData = fusion.getFusionQPose(); // get fused quaternions
-//      Serial.print("NOW: "); Serial.println(now);
+//      if(debug) {
+//        Serial.print("Got data...\nNOW: "); Serial.println(now);
+//        Serial.print("TSdata: "); Serial.println(tsData);
+//      }
+      cookIMU(now);
     }
     
-    do_output(now);
+    if(thumbJoy) {
+      thumbValX = analogRead(thumbPinX);
+      thumbValY = analogRead(thumbPinY);
+      if(debug) {
+        Serial.print("thumbVal: "); Serial.print(thumbValX); Serial.print(" "); Serial.println(thumbValY);
+      }
+      transmit[thumbTransmitPos] = (uint8_t)((thumbValX >> 8) & 0xFF);
+      transmit[thumbTransmitPos+1] = (uint8_t)(thumbValX & 0xFF);
+      transmit[thumbTransmitPos+2] = (uint8_t)((thumbValY >> 8) & 0xFF);
+      transmit[thumbTransmitPos+3] = (uint8_t)(thumbValY & 0xFF);
+      transmit[thumbTransmitPos+4] = (thumbButtonPressed) ? 1 : 0;
+    }
+    
 
+    Serial.write(transmit, 60);
 }
 
 
-void do_output(unsigned long ts) {
-  unsigned long delta;
+// ================================================================
+// ===                         COOKIMU                          ===
+// ================================================================
+void cookIMU(unsigned long ts) {
+  unsigned long delta = tsData - lastSample;
+  lastSample = tsData;
 
   if(debug) {
+//    Serial.println("Cooking...");
     sampleCount++;
-    if ((delta = ts - lastRate) >= GYRO_BIAS_RATE) {
+    if ((ts - lastRate) >= GYRO_BIAS_RATE) {
       Serial.print("Sample rate: "); Serial.print(sampleCount);
       if (imu->IMUGyroBiasValid()) {
         Serial.println(", gyro bias valid");
       } else {
         Serial.println(", calculating gyro bias");
       }
-      
       sampleCount = 0;
       lastRate = ts;
     }
     if ((ts - lastDisplay) >= DISPLAY_INTERVAL) {
+//      Serial.print("Accel: x "); Serial.print(accelData.x());
+//      Serial.print(" y "); Serial.print(accelData.y());
+//      Serial.print(" z "); Serial.println(accelData.z());
+//      Serial.print("Gyro: x "); Serial.print(gyroData.x());
+//      Serial.print(" y "); Serial.print(gyroData.y());
+//      Serial.print(" z "); Serial.println(gyroData.z());
+//      Serial.print("Quat: w "); Serial.print(quatData.scalar());
+//      Serial.print(" x "); Serial.print(quatData.x());
+//      Serial.print(" y "); Serial.print(quatData.y());
+//      Serial.print(" z "); Serial.println(quatData.z());
+//      Serial.print("IMU delta: "); Serial.println(delta);
+//      Serial.print("Monitor delta: "); Serial.println(ts - lastDisplay);
       lastDisplay = ts;
-      Serial.print("Got data...\nAccel: x "); Serial.print(accelData.x());
-      Serial.print(" y "); Serial.print(accelData.y());
-      Serial.print(" z "); Serial.println(accelData.z());
-      Serial.print("Gyro: x "); Serial.print(gyroData.x());
-      Serial.print(" y "); Serial.print(gyroData.y());
-      Serial.print(" z "); Serial.println(gyroData.z());
-      Serial.print("Quat: w "); Serial.print(quatData.scalar());
-      Serial.print(" x "); Serial.print(quatData.x());
-      Serial.print(" y "); Serial.print(quatData.y());
-      Serial.print(" z "); Serial.println(quatData.z());
-      Serial.print("Timestamp: "); Serial.println(tsData);
     }
   } else {
     int i;
     double temp;
     
     if ((ts - lastTransmit) >= TRANSMIT_INTERVAL) {
-      lastTransmit = ts;
-
       f2b.f = quatData.scalar();
       for(i = 0; i < 4; i++) {
         transmit[i+2] = f2b.b[i];
@@ -267,9 +344,6 @@ void do_output(unsigned long ts) {
         transmit[i+38] = f2b.b[i];
       }
       
-      for(i = 42; i < 52; i++) {
-        transmit[i] = 0;
-      }
       // transmit[42-46] -> joystick X Y B
       // transmit[47-51] -> trackball X Y B
       
@@ -282,10 +356,62 @@ void do_output(unsigned long ts) {
         transmit[i] = 0;
       }
       
-      Serial.write(transmit, 60);
+      lastTransmit = ts;
     }
   }
-
+  
+  if(blinkMode) {
+    blinkState = !blinkState;
+    digitalWrite(ledPin, blinkState);
+  }
 }
 
 
+// ================================================================
+// ===                    INTERRUPT ROUTINES                    ===
+// ================================================================
+void tbButtonInt() {
+  if(digitalRead(tbButtonPin) == LOW) {
+    digitalWrite(tbLedWhitePin, HIGH);
+    tbButtonPressed = true;
+    if(debug) Serial.println("tb button DOWN");
+  } else {
+    digitalWrite(tbLedWhitePin, LOW);
+    tbButtonPressed = false;
+    if(debug) Serial.println("tb button UP");
+  }
+}
+
+void tbWheelUpInt() {
+  digitalWrite(tbLedBluePin, HIGH);
+  if(tbWheelVertCntRaw < tbWheelCntMax) tbWheelVertCntRaw += tbWheelIncStep;
+  if(debug) Serial.println("tb wheel UP");
+}
+
+void tbWheelDownInt() {
+  digitalWrite(tbLedBluePin, LOW);
+  if(tbWheelVertCntRaw > tbWheelCntMin) tbWheelVertCntRaw -= tbWheelIncStep;
+  if(debug) Serial.println("tb wheel DOWN");
+}
+
+void tbWheelLeftInt() {
+  digitalWrite(tbLedRedPin, HIGH);
+  if(tbWheelHorizCntRaw < tbWheelCntMax) tbWheelHorizCntRaw += tbWheelIncStep;
+  if(debug) Serial.println("tb wheel LEFT");
+}
+
+void tbWheelRightInt() {
+  digitalWrite(tbLedRedPin, LOW);
+  if(tbWheelHorizCntRaw > tbWheelCntMin) tbWheelHorizCntRaw -= tbWheelIncStep;
+  if(debug) Serial.println("tb wheel RIGHT");
+}
+
+void thumbButtonInt() {
+  if(digitalRead(thumbButtonPin) == LOW) {
+    thumbButtonPressed = true;
+    if(debug) Serial.println("thumb button DOWN");
+  } else {
+    thumbButtonPressed = false;
+    if(debug) Serial.println("thumb button UP");
+  }
+}
