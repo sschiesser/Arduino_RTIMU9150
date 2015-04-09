@@ -39,7 +39,7 @@ boolean debug = false;
 // LED blink mode
 boolean blinkMode = true;
 boolean blinkState = false;
-int ledPin = 13;
+uint8_t ledPin = 13;
 
 // transmit buffer 
 // Frame format:       {ST, ADD,   quat w,      x,       y,       z,      accel x,    y,       z,      gyro x,      y,       z,     joy xyb,    tb xyb,     ts,              ...        SP }
@@ -55,18 +55,18 @@ uint8_t transmit[60] = {60, 191,   0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,    0,0,0,
 // thumbJoy pinout (L to R):
 // Xout - 5V - Yout - gnd
 boolean thumbJoy = true;
-int thumbPinX = 0; // Analog read A0 pin
-int thumbPinY = 1; // Analog read A1 pin
-int thumbButtonPin = 12; // Digital in 12 (PCint)
-int thumbValX = 0;
-int thumbValY = 0;
-int thumbValXMin = 224;
-int thumbValXMax = 890;
-int thumbValYMin = 20;
-int thumbValYMax = 870;
+uint8_t thumbPinX = 0; // Analog read A0 pin
+uint8_t thumbPinY = 1; // Analog read A1 pin
+uint8_t thumbButtonPin = 12; // Digital in 12 (PCint)
+uint16_t thumbValX = 0;
+uint16_t thumbValY = 0;
+uint16_t thumbValXMin = 224;
+uint16_t thumbValXMax = 890;
+uint16_t thumbValYMin = 20;
+uint16_t thumbValYMax = 870;
 
-int thumbTransmitPos = 42; // First position of the thumb joystick values in the transmit array
-int thumbVals = 5; // Number of positions occupied by thumbJoy in the transmit array
+uint8_t thumbTransmitPos = 42; // First position of the thumb joystick values in the transmit array
+uint8_t thumbVals = 5; // Number of positions occupied by thumbJoy in the transmit array
 
 boolean thumbButtonPressed = false;
 
@@ -75,24 +75,24 @@ boolean thumbButtonPressed = false;
    ***                       TRACKBALL                          ***
    ****************************************************************/
 boolean trackball = false;
-int tbLedBluePin = 11; // Digital out 8
-int tbLedRedPin = 10; // Digital out 9
-int tbLedGreePinn = 9; // Digital out 10
-int tbLedWhitePin = 8; // Digital out 11
-int tbWheelUpPin = 3; // Digital in 3 (PCInt)
-int tbWheelDownPin = 4; // Digital in 4 (PCInt)
-int tbWheelLeftPin = 5; // Digital in 5 (PCInt)
-int tbWheelRightPin = 6; // Digital in 6 (PCInt)
-int tbButtonPin = 7; // Digital in 7 (PCInt)
+uint8_t tbLedBluePin = 11; // Digital out 8
+uint8_t tbLedRedPin = 10; // Digital out 9
+uint8_t tbLedGreePinn = 9; // Digital out 10
+uint8_t tbLedWhitePin = 8; // Digital out 11
+uint8_t tbWheelUpPin = 3; // Digital in 3 (PCInt)
+uint8_t tbWheelDownPin = 4; // Digital in 4 (PCInt)
+uint8_t tbWheelLeftPin = 5; // Digital in 5 (PCInt)
+uint8_t tbWheelRightPin = 6; // Digital in 6 (PCInt)
+uint8_t tbButtonPin = 7; // Digital in 7 (PCInt)
 
-int tbTransmitPos = 47; // First position of the trackball values in the transmit array
-int tbVals = 5; // Number of positions occupied by trackball in the transmit array
+uint8_t tbTransmitPos = 47; // First position of the trackball values in the transmit array
+uint8_t tbVals = 5; // Number of positions occupied by trackball in the transmit array
 
-volatile int tbWheelVertCntRaw = 120;
-volatile int tbWheelHorizCntRaw = 120;
-int tbWheelCntMax = 240;
-int tbWheelCntMin = 0;
-int tbWheelIncStep = 10;
+volatile uint8_t tbWheelVertCntRaw = 120;
+volatile uint8_t tbWheelHorizCntRaw = 120;
+uint8_t tbWheelCntMax = 240;
+uint8_t tbWheelCntMin = 0;
+uint8_t tbWheelIncStep = 10;
 boolean tbButtonPressed = false;
 
 
@@ -105,7 +105,7 @@ RTIMUSettings settings;                               // the settings object
 
 // GYRO_BIAS_RATE sets the rate at which gyro bias is checked
 #define GYRO_BIAS_RATE 2000                           // interval between gyro bias check
-int sampleCount;
+uint16_t sampleCount;
 unsigned long lastRate;
 
 //  DISPLAY_INTERVAL sets the rate at which results are displayed
@@ -128,15 +128,15 @@ unsigned long lastSample;
 unsigned long tsData;
 RTVector3 accelData, gyroData;
 RTQuaternion quatData;
-int imuQuatPos = 2; // position of the first quaternion byte in the transmit table
-int imuQuatSize = 4; // size in bytes of each quaternion data
-int imuQuatNum = 4; // number of quaternions
-int imuAccelPos = imuQuatPos + (imuQuatSize * imuQuatNum);
-int imuAccelSize = 4; // size in bytes of each accelerometer data
-int imuAccelNum = 3; // number of accelerometer values
-int imuGyroPos = imuAccelPos + (imuAccelSize * imuAccelNum);
-int imuGyroSize = 4; // size in bytes of each gyroscope data
-int imuGyroNum = 3; // number of gyroscope values
+uint8_t imuQuatPos = 2; // position of the first quaternion byte in the transmit table
+uint8_t imuQuatSize = 4; // size in bytes of each quaternion data
+uint8_t imuQuatNum = 4; // number of quaternions
+uint8_t imuAccelPos = imuQuatPos + (imuQuatSize * imuQuatNum);
+uint8_t imuAccelSize = 4; // size in bytes of each accelerometer data
+uint8_t imuAccelNum = 3; // number of accelerometer values
+uint8_t imuGyroPos = imuAccelPos + (imuAccelSize * imuAccelNum);
+uint8_t imuGyroSize = 4; // size in bytes of each gyroscope data
+uint8_t imuGyroNum = 3; // number of gyroscope values
 
 // float to bytes converting union
 union float2Bytes {
@@ -149,7 +149,7 @@ union float2Bytes {
 // ================================================================
 void setup()
 {
-    int errcode, i;
+    uint8_t errcode, i;
   
     Serial.begin(SERIAL_PORT_SPEED);
     Wire.begin();
@@ -296,7 +296,7 @@ void cookIMU(unsigned long ts) {
       lastDisplay = ts;
     }
   } else {
-    int i;
+    uint8_t i;
     double temp;
     
     if ((ts - lastTransmit) >= TRANSMIT_INTERVAL) {
