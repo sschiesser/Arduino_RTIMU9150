@@ -54,7 +54,7 @@ uint8_t transmit[60] = {60, 191,   0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,    0,0,0,
    ****************************************************************/
 // thumbJoy pinout (L to R):
 // Xout - 5V - Yout - gnd
-boolean thumbJoy = true;
+boolean thumbJoy = false;
 uint8_t thumbPinX = 0; // Analog read A0 pin
 uint8_t thumbPinY = 1; // Analog read A1 pin
 uint8_t thumbButtonPin = 12; // Digital in 12 (PCint)
@@ -109,20 +109,20 @@ uint16_t sampleCount;
 unsigned long lastRate;
 
 //  DISPLAY_INTERVAL sets the rate at which results are displayed
-#define DISPLAY_INTERVAL  100                         // interval between pose displays
+#define DISPLAY_INTERVAL  100                         // interval between pose displays (debug mode)
 unsigned long lastDisplay;
 
 // TRANSMIT_INTERVAL set the rate at which results are transmited
-#define TRANSMIT_INTERVAL 5                          // interval betwween two transmisions
+#define TRANSMIT_INTERVAL 50                          // interval betwween two transmisions
                                                      // note that the code need ca 20 ms to fetch and compute the data
 unsigned long lastTransmit;
 
 // SAMPLE_RATE set the rate at which the IMU is sampled
-#define SAMPLE_RATE 50                              // sample rate in Hz
+#define SAMPLE_RATE 20                              // sample rate in Hz
 unsigned long lastSample;
 
 //  SERIAL_PORT_SPEED defines the speed to use for the debug serial port
-#define  SERIAL_PORT_SPEED  115200
+#define  SERIAL_PORT_SPEED  57600
 
 // IMU & fusion data to transmit
 unsigned long tsData;
@@ -183,10 +183,10 @@ void setup()
     /* Thumb joystick setup */
     if(thumbJoy) {
       if(debug) Serial.println("Thumb joystick enabled");
-
       pinMode(thumbButtonPin, INPUT_PULLUP);
       PCintPort::attachInterrupt(thumbButtonPin, &thumbButtonInt, CHANGE);
     } else {
+      if(debug) Serial.println("No joystick available");
       for(i = 0; i < thumbVals; i++) {
         transmit[thumbTransmitPos + i] = 120 + i;
       }
@@ -235,10 +235,10 @@ void loop()
       gyroData = imu->getGyro();          // get gyro data
       tsData = imu->getTimestamp();       // get calculated timestamp
       quatData = fusion.getFusionQPose(); // get fused quaternions
-//      if(debug) {
-//        Serial.print("Got data...\nNOW: "); Serial.println(now);
-//        Serial.print("TSdata: "); Serial.println(tsData);
-//      }
+      if(debug) {
+        Serial.print("Got data...\nNOW: "); Serial.println(now);
+        Serial.print("TSdata: "); Serial.println(tsData);
+      }
       cookIMU(now);
     }
     
@@ -265,10 +265,13 @@ void loop()
 // ================================================================
 void cookIMU(unsigned long ts) {
   unsigned long delta = tsData - lastSample;
-  lastSample = tsData;
 
   if(debug) {
-//    Serial.println("Cooking...");
+    Serial.print("Cooking...\nts: "); Serial.print(ts, DEC);
+    Serial.print(" tsData: "); Serial.print(tsData, DEC);
+    Serial.print(" lastSample: "); Serial.print(lastSample, DEC);
+    Serial.print(" delta: "); Serial.println(delta, DEC);
+    lastSample = tsData;
     sampleCount++;
     if ((ts - lastRate) >= GYRO_BIAS_RATE) {
       Serial.print("Sample rate: "); Serial.print(sampleCount);
@@ -299,6 +302,8 @@ void cookIMU(unsigned long ts) {
     uint8_t i;
     double temp;
     
+    lastSample = tsData;
+
     if ((ts - lastTransmit) >= TRANSMIT_INTERVAL) {
       f2b.f = quatData.scalar();
       for(i = 0; i < 4; i++) {
@@ -347,10 +352,10 @@ void cookIMU(unsigned long ts) {
       // transmit[42-46] -> joystick X Y B
       // transmit[47-51] -> trackball X Y B
       
-      transmit[52] = (uint8_t)((tsData >> 24) & 0xff);
-      transmit[53] = (uint8_t)((tsData >> 16) & 0xff);
-      transmit[54] = (uint8_t)((tsData >> 8) & 0xff);
-      transmit[55] = (uint8_t)(tsData & 0xff);
+      transmit[52] = (uint8_t)(((ts-lastTransmit) >> 24) & 0xff);
+      transmit[53] = (uint8_t)(((ts-lastTransmit) >> 16) & 0xff);
+      transmit[54] = (uint8_t)(((ts-lastTransmit) >> 8) & 0xff);
+      transmit[55] = (uint8_t)((ts-lastTransmit) & 0xff);
       
       for(i = 56; i < 59; i++) {
         transmit[i] = 0;
