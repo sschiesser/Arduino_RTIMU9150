@@ -26,11 +26,10 @@ bool debug = true;
 // Compass calibration button
 uint8_t compassCalibPin = 2; // Digital in 2 (PCint)
 bool calibMode = false;
-int calibDebounceDelay = 3000;
 
 // LED blink mode
 uint8_t blinkMode = LED_WORKING;
-boolean blinkState = false;
+bool blinkState = false;
 uint8_t ledPin = 13;
 
 // transmit buffer 
@@ -93,12 +92,12 @@ RTIMUSettings settings;		// the settings object
 CALLIB_DATA calData;		// the calibration data
 
 // GYRO_BIAS_RATE sets the rate at which gyro bias is checked
-#define GYRO_BIAS_RATE		2000		// interval between gyro bias check
+#define GYRO_BIAS_RATE		500		// interval between gyro bias check
 uint16_t sampleCount;
 unsigned long lastRate;
 
 //  DISPLAY_INTERVAL sets the rate at which results are displayed
-#define DISPLAY_INTERVAL	100			// interval between pose displays (debug mode)
+#define DISPLAY_INTERVAL	300			// interval between pose displays (debug mode)
 unsigned long lastDisplay;
 
 // TRANSMIT_INTERVAL set the rate at which results are transmited

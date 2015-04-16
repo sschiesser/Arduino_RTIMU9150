@@ -32,9 +32,11 @@
 #include "IMUSettings.h"
 
 
-// ================================================================
-// ===                      INITIAL SETUP                       ===
-// ================================================================
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+/* | setup																	| */
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void setup()
 {
 	uint8_t errcode, i;
@@ -55,18 +57,23 @@ void setup()
 	* initialization functions: "../libraries/RTIMULib/RTIMU.cpp", "../libraries/RTIMULib/RTIMUMPU9150.cpp"
 	* calibration functions: "../libraries/CalLib/CalLib.cpp" */
 	imu = RTIMU::createIMU(&settings); // create the imu object
-	Serial.print("ArduinoIMU starting using device "); Serial.println(imu->IMUName());
-	if ((errcode = imu->IMUInit()) < 0) {
-		Serial.print("Failed to init IMU: "); Serial.println(errcode);
+	if((errcode = imu->IMUInit()) < 0) {
+		if(debug) {
+			Serial.print("Failed to init IMU: "); Serial.println(errcode);
+		}
+		infiniteBlinking();
 	}
-	if (imu->getCalibrationValid()) {
-		Serial.println("Using compass calibration");
-	} else {
-		Serial.println("No valid compass calibration data");
+	if(debug) {
+		Serial.print("ArduinoIMU starting using device "); Serial.println(imu->IMUName());
+		if (imu->getCalibrationValid()) {
+			Serial.println("Using compass calibration");
+		} else {
+			Serial.println("No valid compass calibration data");
+		}
 	}
 	lastDisplay = lastRate = lastTransmit = lastSample =  millis();
 	if(debug) {
-		Serial.print("Starting counter @ "); Serial.println(lastDisplay);
+		Serial.print("Starting counter @ "); Serial.println(lastDisplay);		
 	}
 	sampleCount = 0;
 	// use of sensors in the fusion algorithm can be controlled here
@@ -77,11 +84,15 @@ void setup()
     
 	/* Thumb joystick setup */
 	if(thumbJoy) {
-		if(debug) Serial.println("Thumb joystick enabled");
+		if(debug) {
+			Serial.println("Thumb joystick enabled");
+		}
 		pinMode(thumbButtonPin, INPUT_PULLUP);
 		PCintPort::attachInterrupt(thumbButtonPin, &thumbButtonInt, CHANGE);
 	} else {
-		if(debug) Serial.println("No joystick available");
+		if(debug) {
+			Serial.println("No joystick available");
+		}
 		for(i = 0; i < thumbVals; i++) {
 			transmit[thumbTransmitPos + i] = 120 + i;
 		}
@@ -89,7 +100,9 @@ void setup()
     
 	/* Trackball setup */
 	if(trackball) {
-		if(debug) Serial.println("Trackball enabled");
+		if(debug) {
+			Serial.println("Trackball enabled");
+		}
 
 		pinMode(tbWheelUpPin, INPUT);
 		PCintPort::attachInterrupt(tbWheelUpPin, &tbWheelUpInt, RISING);
@@ -115,10 +128,11 @@ void setup()
 
 
 
-// ================================================================
-// ===                    MAIN PROGRAM LOOP                     ===
-// ================================================================
-
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+/* | loop																	| */
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void loop()
 {
 	unsigned long now = millis();
@@ -136,9 +150,9 @@ void loop()
 	if(thumbJoy) {
 		thumbValX = analogRead(thumbPinX);
 		thumbValY = analogRead(thumbPinY);
-		if(debug) {
-			Serial.print("thumbVal: "); Serial.print(thumbValX); Serial.print(" "); Serial.println(thumbValY);
-		}
+		// if(debug) {
+		// 	Serial.print("thumbVal: "); Serial.print(thumbValX); Serial.print(" "); Serial.println(thumbValY);
+		// }
 		transmit[thumbTransmitPos] = (uint8_t)((thumbValX >> 8) & 0xFF);
 		transmit[thumbTransmitPos+1] = (uint8_t)(thumbValX & 0xFF);
 		transmit[thumbTransmitPos+2] = (uint8_t)((thumbValY >> 8) & 0xFF);
@@ -147,9 +161,9 @@ void loop()
 	}
     
 	if(trackball) {
-		if(debug) {
-			Serial.print("tbWheel: "); Serial.print(tbWheelHorizCnt); Serial.print(" "); Serial.println(tbWheelVertCnt);
-		}
+		// if(debug) {
+		// 	Serial.print("tbWheel: "); Serial.print(tbWheelHorizCnt); Serial.print(" "); Serial.println(tbWheelVertCnt);
+		// }
 		transmit[tbTransmitPos] = (uint8_t)((tbWheelHorizCnt >> 8) & 0xFF);
 		transmit[tbTransmitPos+1] = (uint8_t)(tbWheelHorizCnt & 0xFF);
 		transmit[tbTransmitPos+2] = (uint8_t)((tbWheelVertCnt >> 8) & 0xFF);
@@ -164,24 +178,27 @@ void loop()
 	}
     
 	if(!debug) {
-		//      Serial.write(transmit, 60);
+		Serial.write(transmit, 60);
 	}
 }
 
 
-// ================================================================
-// ===                         COOKIMU                          ===
-// ================================================================
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+/* | cookIMU																| */
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void cookIMU(unsigned long ts)
 {
 	unsigned long delta = tsData - lastSample;
 
 	if(debug) {
-		//    Serial.print("Cooking...\nts: "); Serial.print(ts, DEC);
-		Serial.print("tsData: "); Serial.print(tsData, DEC);
-		Serial.print(" lastSample: "); Serial.print(lastSample, DEC);
-		Serial.print(" delta: "); Serial.println(delta, DEC);
+		// Serial.print("tsData: "); Serial.print(tsData, DEC);
+		// Serial.print(" lastSample: "); Serial.print(lastSample, DEC);
+		// Serial.print(" delta: "); Serial.println(delta, DEC);
 		lastSample = tsData;
+		
+		// Verifying if gyro bias is still valid...
 		sampleCount++;
 		if ((ts - lastRate) >= GYRO_BIAS_RATE) {
 			Serial.print("Sample rate: "); Serial.print(sampleCount);
@@ -193,20 +210,28 @@ void cookIMU(unsigned long ts)
 			sampleCount = 0;
 			lastRate = ts;
 		}
+		
+		// Displaying some IMU values at DISPLAY_INTERVAL to not saturate the serial port
 		if ((ts - lastDisplay) >= DISPLAY_INTERVAL) {
-			//      Serial.print("Accel: x "); Serial.print(accelData.x());
-			//      Serial.print(" y "); Serial.print(accelData.y());
-			//      Serial.print(" z "); Serial.println(accelData.z());
-			//      Serial.print("Gyro: x "); Serial.print(gyroData.x());
-			//      Serial.print(" y "); Serial.print(gyroData.y());
-			//      Serial.print(" z "); Serial.println(gyroData.z());
-			//      Serial.print("Quat: w "); Serial.print(quatData.scalar());
-			//      Serial.print(" x "); Serial.print(quatData.x());
-			//      Serial.print(" y "); Serial.print(quatData.y());
-			//      Serial.print(" z "); Serial.println(quatData.z());
-			//      Serial.print("IMU delta: "); Serial.println(delta);
-			//      Serial.print("Monitor delta: "); Serial.println(ts - lastDisplay);
+			Serial.print("Accel:\t\tx "); Serial.print(accelData.x());
+			Serial.print(" y "); Serial.print(accelData.y());
+			Serial.print(" z "); Serial.println(accelData.z());
+			Serial.print("Gyro:\t\tx "); Serial.print(gyroData.x());
+			Serial.print(" y "); Serial.print(gyroData.y());
+			Serial.print(" z "); Serial.println(gyroData.z());
+			Serial.print("Quat:\t\tw "); Serial.print(quatData.scalar());
+			Serial.print(" x "); Serial.print(quatData.x());
+			Serial.print(" y "); Serial.print(quatData.y());
+			Serial.print(" z "); Serial.println(quatData.z());
+			Serial.print("IMU delta:\t"); Serial.println(delta);
+			Serial.print("Mon delta:\t"); Serial.println(ts - lastDisplay);
 			lastDisplay = ts;
+
+			// Showing activity @ display rate
+			if(blinkMode == LED_WORKING) {
+				blinkState = !blinkState;
+				digitalWrite(ledPin, blinkState);
+			}
 		}
 	} else {
 		uint8_t i;
@@ -214,6 +239,7 @@ void cookIMU(unsigned long ts)
     
 		lastSample = tsData;
 
+		// Filling up the transmit[] array at TRANSMIT_INTERVAL
 		if ((ts - lastTransmit) >= TRANSMIT_INTERVAL) {
 			f2b.f = quatData.scalar();
 			for(i = 0; i < 4; i++) {
@@ -273,27 +299,48 @@ void cookIMU(unsigned long ts)
       
 			lastTransmit = ts;
 		}
-	}
-  
-	if(blinkMode == LED_WORKING) {
-		blinkState = !blinkState;
-		digitalWrite(ledPin, blinkState);
+		// Showing activity @ transmit rate
+		if(blinkMode == LED_WORKING) {
+			blinkState = !blinkState;
+			digitalWrite(ledPin, blinkState);
+		}
 	}
 }
 
 
-// ================================================================
-// ===                   CALIBRATION ROUTINES                   ===
-// ================================================================
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+/* | infiniteBlinking														| */
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+void infiniteBlinking(void)
+{
+	for(;;) {
+		blinkState = !blinkState;
+		digitalWrite(ledPin, blinkState);
+		delay(200);
+	}
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+/* | CALIBRATION ROUTINES													| */
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 // Entering calibration...
 void compassCalibEnter() 
 {
+	if(debug) {
+		Serial.println("Entering calibration mode...");
+	}
+	
 	calibMode = true;
   
-	calLibRead(0, &calData);                           // pick up existing mag data if there   
+	calLibRead(0, &calData);				// pick up existing mag data if there   
 	calData.magValid = false;
 	for (int i = 0; i < 3; i++) {
-		calData.magMin[i] = 10000000;                    // init mag cal data
+		calData.magMin[i] = 10000000;		// init mag cal data for x-y-z
 		calData.magMax[i] = -10000000;
 	}
   
@@ -303,7 +350,7 @@ void compassCalibEnter()
 	}
   
 	imu->IMUInit();
-	imu->setCalibrationMode(true);                    // make sure we get raw data
+	imu->setCalibrationMode(true);			// make sure we get raw data
 	if(debug) {
 		Serial.print("Calibrating device "); Serial.println(imu->IMUName());
 	}
@@ -314,23 +361,26 @@ void compassCalibEnter()
 // Exiting calibration...
 void compassCalibExit()
 {
+	uint8_t errcode;
 	calibMode = false;
 	calData.magValid = true;
 	calLibWrite(0, &calData);
 	if(debug) {
 		Serial.println("Exiting calibration mode...");
 		Serial.print("Data saved for device "); Serial.println(imu->IMUName());
+		Serial.println("Re-initializating with new calibration data");
 	}
-	interrupts();
+	fusion.reset();
+	if ((errcode = imu->IMUInit()) < 0) {
+		Serial.print("Failed to init IMU: "); Serial.println(errcode);
+	}
 }
 
 // Calibrating...
 void compassCalibrate()
 {
-	boolean changed;
+	bool changed;
 	RTVector3 mag;
-	
-	interrupts();
 	
 	while(calibMode) {
 		if(imu->IMURead()) {
@@ -367,20 +417,16 @@ void compassCalibrate()
 }
 
 
-// ================================================================
-// ===                    INTERRUPT ROUTINES                    ===
-// ================================================================
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+/* | INTERRUPT ROUTINES														| */
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 void compassCalibInt()
 {
 	if(calibMode) {
-		if(debug) {
-			Serial.println("----------------------exiting calib------------------");
-		}
 		compassCalibExit();
 	} else {
-		if(debug) {
-			Serial.println("++++++++++++++++++++++entering calib+++++++++++++++++");
-		}
 		compassCalibEnter();
 	}
 }
