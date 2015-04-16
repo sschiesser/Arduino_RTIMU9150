@@ -176,10 +176,6 @@ void loop()
 			compassCalibEnter();
 		}
 	}
-    
-	if(!debug) {
-		Serial.write(transmit, 60);
-	}
 }
 
 
@@ -296,13 +292,15 @@ void cookIMU(unsigned long ts)
 			for(i = 56; i < 59; i++) {
 				transmit[i] = 0;
 			}
-      
 			lastTransmit = ts;
-		}
-		// Showing activity @ transmit rate
-		if(blinkMode == LED_WORKING) {
-			blinkState = !blinkState;
-			digitalWrite(ledPin, blinkState);
+			
+			// Transmitting & showing activity @ transmit rate
+			Serial.write(transmit, 60);
+			
+			if(blinkMode == LED_WORKING) {
+				blinkState = !blinkState;
+				digitalWrite(ledPin, blinkState);
+			}			
 		}
 	}
 }

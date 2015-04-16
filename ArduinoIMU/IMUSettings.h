@@ -21,7 +21,7 @@
 // General settings...
 // *******************
 // debug flag for terminal monitoring
-bool debug = true;
+bool debug = false;
 
 // Compass calibration button
 uint8_t compassCalibPin = 2; // Digital in 2 (PCint)
@@ -92,7 +92,7 @@ RTIMUSettings settings;		// the settings object
 CALLIB_DATA calData;		// the calibration data
 
 // GYRO_BIAS_RATE sets the rate at which gyro bias is checked
-#define GYRO_BIAS_RATE		500		// interval between gyro bias check
+#define GYRO_BIAS_RATE		2000		// interval between gyro bias check
 uint16_t sampleCount;
 unsigned long lastRate;
 
@@ -101,7 +101,7 @@ unsigned long lastRate;
 unsigned long lastDisplay;
 
 // TRANSMIT_INTERVAL set the rate at which results are transmited
-#define TRANSMIT_INTERVAL	50			// interval betwween two transmisions
+#define TRANSMIT_INTERVAL	10			// interval betwween two transmisions
 										// note that the code need ca 20 ms to fetch and compute the data
 unsigned long lastTransmit;
 
