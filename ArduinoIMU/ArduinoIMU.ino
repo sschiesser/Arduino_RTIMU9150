@@ -137,12 +137,12 @@ void loop()
 {
 	unsigned long now = millis();
   
-	if (imu->IMURead()) {                 // get the latest data if ready yet
-		fusion.newIMUData(imu->getGyro(), imu->getAccel(), imu->getCompass(), imu->getTimestamp()); // calculate the fusion data from the read imu values
-		accelData = imu->getAccel();        // get accel data
-		gyroData = imu->getGyro();          // get gyro data
-		tsData = imu->getTimestamp();       // get calculated timestamp
-		quatData = fusion.getFusionQPose(); // get fused quaternions
+	if (imu->IMURead()) {						// get the latest data if ready yet
+		fusion.newIMUData(imu->getGyro(), imu->getAccel(), imu->getCompass(), imu->getTimestamp());		// calculate the fusion data from the read imu values
+		accelData = imu->getAccel();			// get accel data
+		gyroData = imu->getGyro();				// get gyro data
+		tsData = imu->getTimestamp();			// get calculated timestamp
+		quatData = fusion.getFusionQPose();		// get fused quaternions
 
 		cookIMU(now);
 	}
