@@ -21,7 +21,7 @@
 // General settings...
 // *******************
 // debug flag for terminal monitoring
-bool debug = false;
+bool debug = true;
 
 // Compass calibration button
 uint8_t compassCalibPin = 2; // Digital in 2 (PCint)
@@ -43,7 +43,7 @@ uint8_t transmit[60] = {60, 191,   0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,    0,0,0,
 // ******************
 // thumbJoy pinout (L to R):
 // Xout - 5V - Yout - gnd
-bool thumbJoy = true;
+bool thumbJoyEn = true;
 uint8_t thumbPinX = 0; // Analog read A0 pin
 uint8_t thumbPinY = 1; // Analog read A1 pin
 uint8_t thumbButtonPin = 12; // Digital in 12 (PCint)
@@ -62,11 +62,11 @@ bool thumbButtonPressed = false;
 
 // Trackball...
 // ************
-bool trackball = false;
-uint8_t tbLedBluePin = 11; // Digital out 8
-uint8_t tbLedRedPin = 10; // Digital out 9
-uint8_t tbLedGreePinn = 9; // Digital out 10
-uint8_t tbLedWhitePin = 8; // Digital out 11
+bool trackballEn = true;
+uint8_t tbLedBluePin = 8; // Digital out 8
+uint8_t tbLedRedPin = 9; // Digital out 9
+uint8_t tbLedGreePinn = 11; // Digital out 11
+uint8_t tbLedWhitePin = 10; // Digital out 10
 uint8_t tbWheelUpPin = 3; // Digital in 3 (PCInt)
 uint8_t tbWheelDownPin = 4; // Digital in 4 (PCInt)
 uint8_t tbWheelLeftPin = 5; // Digital in 5 (PCInt)
@@ -86,6 +86,7 @@ bool tbButtonPressed = false;
 
 // MPU-9150...
 // ***********
+// bool imuEn = true;
 RTIMU *imu;					// the IMU object
 RTFusionRTQF fusion;		// the fusion object
 RTIMUSettings settings;		// the settings object
@@ -97,7 +98,7 @@ uint16_t sampleCount;
 unsigned long lastRate;
 
 //  DISPLAY_INTERVAL sets the rate at which results are displayed
-#define DISPLAY_INTERVAL	100			// interval between pose displays (debug mode)
+#define DISPLAY_INTERVAL	300			// interval between pose displays (debug mode)
 unsigned long lastDisplay;
 
 // TRANSMIT_INTERVAL set the rate at which results are transmited

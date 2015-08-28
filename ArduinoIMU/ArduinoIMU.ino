@@ -83,7 +83,7 @@ void setup()
 	fusion.setCompassEnable(true);
     
 	/* Thumb joystick setup */
-	if(thumbJoy) {
+	if(thumbJoyEn) {
 		if(debug) {
 			Serial.println("Thumb joystick enabled");
 		}
@@ -99,7 +99,7 @@ void setup()
 	}
     
 	/* Trackball setup */
-	if(trackball) {
+	if(trackballEn) {
 		if(debug) {
 			Serial.println("Trackball enabled");
 		}
@@ -136,8 +136,11 @@ void setup()
 void loop()
 {
 	unsigned long now = millis();
-  
+
 	if (imu->IMURead()) {						// get the latest data if ready yet
+		if(debug) {
+			Serial.println("IMU value read");
+		}
 		fusion.newIMUData(imu->getGyro(), imu->getAccel(), imu->getCompass(), imu->getTimestamp());		// calculate the fusion data from the read imu values
 		accelData = imu->getAccel();			// get accel data
 		gyroData = imu->getGyro();				// get gyro data
@@ -147,7 +150,7 @@ void loop()
 		cookIMU(now);
 	}
     
-	if(thumbJoy) {
+	if(thumbJoyEn) {
 		thumbValX = analogRead(thumbPinX);
 		thumbValY = analogRead(thumbPinY);
 		if(debug) {
@@ -162,7 +165,7 @@ void loop()
 		}
 	}
     
-	if(trackball) {
+	if(trackballEn) {
 		if(debug) {
 			Serial.print("tbWheel: "); Serial.print(tbWheelHorizCnt);
 			Serial.print(" "); Serial.println(tbWheelVertCnt);
@@ -297,10 +300,10 @@ void cookIMU(unsigned long ts)
 				transmit[i] = 0;
 			}
 			lastTransmit = ts;
-			
+
 			// Transmitting & showing activity @ transmit rate
 			Serial.write(transmit, 60);
-			
+
 			if(blinkMode == LED_WORKING) {
 				blinkState = !blinkState;
 				digitalWrite(ledPin, blinkState);
@@ -465,28 +468,28 @@ void tbWheelUpInt()
 {
 	digitalWrite(tbLedBluePin, HIGH);
 	if(tbWheelVertCnt < tbWheelCntMax) tbWheelVertCnt += tbWheelIncStep;
-	if(debug) Serial.println("tb wheel UP");
+	// if(debug) Serial.println("tb wheel UP");
 }
 
 void tbWheelDownInt()
 {
 	digitalWrite(tbLedBluePin, LOW);
 	if(tbWheelVertCnt > tbWheelCntMin) tbWheelVertCnt -= tbWheelIncStep;
-	if(debug) Serial.println("tb wheel DOWN");
+	// if(debug) Serial.println("tb wheel DOWN");
 }
 
 void tbWheelLeftInt()
 {
 	digitalWrite(tbLedRedPin, HIGH);
 	if(tbWheelHorizCnt < tbWheelCntMax) tbWheelHorizCnt += tbWheelIncStep;
-	if(debug) Serial.println("tb wheel LEFT");
+	// if(debug) Serial.println("tb wheel LEFT");
 }
 
 void tbWheelRightInt()
 {
 	digitalWrite(tbLedRedPin, LOW);
 	if(tbWheelHorizCnt > tbWheelCntMin) tbWheelHorizCnt -= tbWheelIncStep;
-	if(debug) Serial.println("tb wheel RIGHT");
+	// if(debug) Serial.println("tb wheel RIGHT");
 }
 
 void thumbButtonInt()
