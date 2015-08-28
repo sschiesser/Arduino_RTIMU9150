@@ -150,25 +150,29 @@ void loop()
 	if(thumbJoy) {
 		thumbValX = analogRead(thumbPinX);
 		thumbValY = analogRead(thumbPinY);
-		// if(debug) {
-		// 	Serial.print("thumbVal: "); Serial.print(thumbValX); Serial.print(" "); Serial.println(thumbValY);
-		// }
-		transmit[thumbTransmitPos] = (uint8_t)((thumbValX >> 8) & 0xFF);
-		transmit[thumbTransmitPos+1] = (uint8_t)(thumbValX & 0xFF);
-		transmit[thumbTransmitPos+2] = (uint8_t)((thumbValY >> 8) & 0xFF);
-		transmit[thumbTransmitPos+3] = (uint8_t)(thumbValY & 0xFF);
-		transmit[thumbTransmitPos+4] = (thumbButtonPressed) ? 1 : 0;
+		if(debug) {
+			Serial.print("thumbVal: "); Serial.print(thumbValX);
+			Serial.print(" "); Serial.println(thumbValY);
+ 		} else {
+			transmit[thumbTransmitPos] = (uint8_t)((thumbValX >> 8) & 0xFF);
+			transmit[thumbTransmitPos+1] = (uint8_t)(thumbValX & 0xFF);
+			transmit[thumbTransmitPos+2] = (uint8_t)((thumbValY >> 8) & 0xFF);
+			transmit[thumbTransmitPos+3] = (uint8_t)(thumbValY & 0xFF);
+			transmit[thumbTransmitPos+4] = (thumbButtonPressed) ? 1 : 0;
+		}
 	}
     
 	if(trackball) {
-		// if(debug) {
-		// 	Serial.print("tbWheel: "); Serial.print(tbWheelHorizCnt); Serial.print(" "); Serial.println(tbWheelVertCnt);
-		// }
-		transmit[tbTransmitPos] = (uint8_t)((tbWheelHorizCnt >> 8) & 0xFF);
-		transmit[tbTransmitPos+1] = (uint8_t)(tbWheelHorizCnt & 0xFF);
-		transmit[tbTransmitPos+2] = (uint8_t)((tbWheelVertCnt >> 8) & 0xFF);
-		transmit[tbTransmitPos+3] = (uint8_t)(tbWheelVertCnt & 0xFF);
-		transmit[tbTransmitPos+4] = (tbButtonPressed) ? 1 : 0;
+		if(debug) {
+			Serial.print("tbWheel: "); Serial.print(tbWheelHorizCnt);
+			Serial.print(" "); Serial.println(tbWheelVertCnt);
+		} else {
+			transmit[tbTransmitPos] = (uint8_t)((tbWheelHorizCnt >> 8) & 0xFF);
+			transmit[tbTransmitPos+1] = (uint8_t)(tbWheelHorizCnt & 0xFF);
+			transmit[tbTransmitPos+2] = (uint8_t)((tbWheelVertCnt >> 8) & 0xFF);
+			transmit[tbTransmitPos+3] = (uint8_t)(tbWheelVertCnt & 0xFF);
+			transmit[tbTransmitPos+4] = (tbButtonPressed) ? 1 : 0;
+		}
 	}
     
 	if(Serial.available()) {
@@ -332,6 +336,9 @@ void compassCalibEnter()
 	if(debug) {
 		Serial.println("Entering calibration mode...");
 	}
+
+	// blinkState = true;
+	// digitalWrite(ledPin, blinkState);
 	
 	calibMode = true;
   
@@ -363,6 +370,10 @@ void compassCalibExit()
 	calibMode = false;
 	calData.magValid = true;
 	calLibWrite(0, &calData);
+	
+	// blinkState = false;
+	// digitalWrite(ledPin, blinkState);
+	
 	if(debug) {
 		Serial.println("Exiting calibration mode...");
 		Serial.print("Data saved for device "); Serial.println(imu->IMUName());
@@ -395,14 +406,22 @@ void compassCalibrate()
 				}
 			}
       
-			if(changed && debug) {
-				Serial.println("--------");
-				Serial.print("minX: "); Serial.print(calData.magMin[0]);
-				Serial.print(" maxX: "); Serial.print(calData.magMax[0]); Serial.println();
-				Serial.print("minY: "); Serial.print(calData.magMin[1]);
-				Serial.print(" maxY: "); Serial.print(calData.magMax[1]); Serial.println();
-				Serial.print("minZ: "); Serial.print(calData.magMin[2]);
-				Serial.print(" maxZ: "); Serial.print(calData.magMax[2]); Serial.println();
+			if(changed) {
+				blinkState = true;
+				digitalWrite(ledPin, blinkState);
+				
+				if(debug) {
+					Serial.println("--------");
+					Serial.print("minX: "); Serial.print(calData.magMin[0]);
+					Serial.print(" maxX: "); Serial.print(calData.magMax[0]); Serial.println();
+					Serial.print("minY: "); Serial.print(calData.magMin[1]);
+					Serial.print(" maxY: "); Serial.print(calData.magMax[1]); Serial.println();
+					Serial.print("minZ: "); Serial.print(calData.magMin[2]);
+					Serial.print(" maxZ: "); Serial.print(calData.magMax[2]); Serial.println();
+				}
+			} else {
+				blinkState = false;
+				digitalWrite(ledPin, blinkState);
 			}
 		}
     

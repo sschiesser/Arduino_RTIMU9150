@@ -97,11 +97,11 @@ uint16_t sampleCount;
 unsigned long lastRate;
 
 //  DISPLAY_INTERVAL sets the rate at which results are displayed
-#define DISPLAY_INTERVAL	300			// interval between pose displays (debug mode)
+#define DISPLAY_INTERVAL	100			// interval between pose displays (debug mode)
 unsigned long lastDisplay;
 
 // TRANSMIT_INTERVAL set the rate at which results are transmited
-#define TRANSMIT_INTERVAL	10			// interval betwween two transmisions
+#define TRANSMIT_INTERVAL	20			// interval betwween two transmisions
 										// note that the code need ca 20 ms to fetch and compute the data
 unsigned long lastTransmit;
 
