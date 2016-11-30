@@ -21,7 +21,7 @@
 // General settings...
 // *******************
 // debug flag for terminal monitoring
-bool debug = true;
+bool debug = false;
 
 // Compass calibration button
 uint8_t compassCalibPin = 2; // Digital in 2 (PCint)
